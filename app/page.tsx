@@ -114,7 +114,7 @@ export default function Home() {
       if (isElectric && ["engine_condition", "leaks", "gas_equipment_status", "gas_cylinder_date"].includes(item.key)) return false;
 
       // Combustion-only checks are hidden for pure EVs; hybrid cars keep engine checks.
-      if (!isElectric && ["battery_condition", "battery_soh", "electric_range", "charging_status", "electric_motor_condition"].includes(item.key)) return false;
+      if (!isElectric && !isHybrid && ["battery_condition", "battery_soh", "electric_range", "charging_status", "electric_motor_condition"].includes(item.key)) return false;
 
       // Gas equipment questions appear only when gas is selected.
       if (!hasGas && ["gas_equipment_status", "gas_cylinder_date"].includes(item.key)) return false;
