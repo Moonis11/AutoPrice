@@ -85,6 +85,32 @@ const initial: Record<string, Answer> = {
   condition: "Yaxshi",
 };
 
+type Recommendation = { title: string; description: string; partnerType: string };
+
+function getRecommendations(key: string, value: Answer): Recommendation[] {
+  const selected = Array.isArray(value) ? value.join(", ") : String(value || "");
+  const recommendations: Record<string, Recommendation> = {
+    engine_condition: { title: "Dvigatel diagnostikasi va ta’miri", description: "Dvigatel holatini ustaga tekshirtiring va kerak bo‘lsa ehtiyot qismlarini tanlang.", partnerType: "Dvigatel ustalari va ehtiyot qismlar do‘konlari" },
+    gearbox_condition: { title: "Uzatmalar qutisi diagnostikasi", description: "Urilish, kechikish yoki shovqin sababini mutaxassis bilan aniqlang.", partnerType: "Transmissiya ustalari" },
+    suspension_condition: { title: "Yurish qismini tekshirtirish", description: "Amortizator, sharovoy va boshqa qismlarni diagnostika qildiring.", partnerType: "Yurish qismi ustalari va ehtiyot qismlar do‘konlari" },
+    brake_condition: { title: "Tormoz tizimi diagnostikasi", description: "Tormoz disklari, kolodkalar va ABS tizimini tekshirtiring.", partnerType: "Tormoz ustalari va ehtiyot qismlar do‘konlari" },
+    leaks: { title: "Suyuqlik sizishini aniqlash", description: "Moy yoki sovitish suyuqligi sizishi manbasini tekshirtiring.", partnerType: "Dvigatel va servis ustaxonalari" },
+    tires_condition: { title: "Shina tanlash va almashtirish", description: "Avtomobilingizga mos shinalar va montaj xizmatini toping.", partnerType: "Shina do‘konlari va shinomontajlar" },
+    electronics_condition: { title: "Avtoelektrik diagnostikasi", description: "Elektronika, sensorlar va konditsioner tizimini tekshirtiring.", partnerType: "Avtoelektriklar va diagnostika markazlari" },
+    battery_condition: { title: "Batareya diagnostikasi", description: "Batareya sig‘imi va ishlash holatini maxsus uskunada tekshirtiring.", partnerType: "EV diagnostika markazlari" },
+    battery_soh: { title: "Batareya SOH tekshiruvi", description: "Batareya sog‘ligini diagnostika hisoboti bilan tasdiqlang.", partnerType: "EV diagnostika markazlari" },
+    charging_status: { title: "Quvvatlash tizimini tekshirtirish", description: "Quvvatlash porti va tizimidagi muammoni aniqlang.", partnerType: "Elektromobil servis markazlari" },
+    electric_motor_condition: { title: "Elektromotor diagnostikasi", description: "Elektromotor shovqini, qizishi yoki boshqa belgilarni tekshirtiring.", partnerType: "Elektromobil ustalari" },
+    painted_parts: { title: "Kuzov va bo‘yoq ishlari", description: "Bo‘yalgan qismlarni tekshirtirish yoki kuzov xizmatini toping.", partnerType: "Kuzov ustalari va bo‘yoq markazlari" },
+    damaged_parts: { title: "Kuzov ta’miri va ehtiyot qismlar", description: "Shikastlangan kuzov qismlarini ta’mirlash yoki almashtirish variantlarini toping.", partnerType: "Kuzov ustalari va ehtiyot qismlar do‘konlari" },
+  };
+  const item = recommendations[key];
+  if (!item || !selected) return [];
+  const neutral = ["Yaxshi", "Muammosiz ishlaydi", "Hammasi ishlaydi", "Yo‘q", "Bo‘yalmagan", "Almashtirilmagan", "Tekshirilmagan", "Bilmayman", "Gaz uskunasi yo‘q"];
+  if (neutral.includes(selected) || selected === "0") return [];
+  return [item];
+}
+
 const money = (value: number) =>
   new Intl.NumberFormat("uz-UZ", { maximumFractionDigits: 0 }).format(value) + " so‘m";
 
@@ -266,6 +292,16 @@ export default function Home() {
               {(question.type === "text" || question.type === "number") && (
                 <input className="answer-input" type={question.type} value={String(currentValue)} onChange={(e) => setAnswer(question.key, e.target.value)} placeholder={question.type === "number" ? "Raqam kiriting" : "Javobingizni yozing"} min={question.key === "year" ? 1980 : 0} max={question.key === "year" ? 2035 : 1000000}/>
               )}
+
+              {getRecommendations(question.key, currentValue).map((recommendation) => (
+                <aside className="smart-recommendation" key={recommendation.title}>
+                  <div className="recommendation-label"><span>✦ SIZGA TAVSIYA ETAMIZ</span><small>HAMKORLIK TAKLIFI</small></div>
+                  <h3>{recommendation.title}</h3>
+                  <p>{recommendation.description}</p>
+                  <div className="recommendation-partners"><span className="recommendation-icon">↗</span><div><b>{recommendation.partnerType}</b><small>AutoPrice hamkorlari shu yerda ko‘rsatiladi</small></div></div>
+                  <div className="recommendation-note">Hozircha tavsiya bloki. Hamkor do‘konlar, ustalar, narxlar va aloqa ma’lumotlari hamkorlar bazasi ulangandan keyin chiqadi. Pullik tavsiyalar reklama sifatida belgilanadi.</div>
+                </aside>
+              ))}
 
               {error && <p className="wizard-error">{error}</p>}
               <div className="wizard-actions">
