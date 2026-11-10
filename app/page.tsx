@@ -116,7 +116,6 @@ export default function Home() {
     setResult(null);
     try {
       const api = process.env.NEXT_PUBLIC_API_URL || "";
-      if (!api) throw new Error("API manzili sozlanmagan. NEXT_PUBLIC_API_URL ni Vercel’da tekshirish kerak.");
       const payload = {
         ...answers,
         year: Number(answers.year),
