@@ -90,7 +90,20 @@ export default function Home() {
   const [imageFailed, setImageFailed] = useState(false);
   const [modelImage, setModelImage] = useState("");
 
-  const questions = useMemo(() => BASE_QUESTIONS, []);
+  const questions = useMemo(() => {
+    const accidentRelated = new Set([
+      "accident_details",
+      "damaged_parts",
+      "replaced_parts",
+      "painted_parts",
+      "welding_rust",
+      "airbag_status",
+    ]);
+    // If the seller reports zero accidents, hide accident-specific follow-up questions.
+    return answers.accident_count === "0"
+      ? BASE_QUESTIONS.filter((item) => !accidentRelated.has(item.key))
+      : BASE_QUESTIONS;
+  }, [answers.accident_count]);
   const question = questions[step];
   const currentValue = answers[question.key] ?? (question.type === "multi" ? [] : "");
   const modelOptions = CATALOG[String(answers.make || "Chevrolet")] || [];
