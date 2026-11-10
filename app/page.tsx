@@ -60,6 +60,13 @@ const BASE_QUESTIONS: Question[] = [
   { key: "service_history", title: "Servis tarixi bormi?", hint: "Moy va ehtiyot qismlar almashinuvi yozuvlari.", type: "select", options: ["To‘liq servis tarixi bor", "Qisman bor", "Yo‘q", "Bilmayman"] },
   { key: "mileage_verified", title: "Probeg tasdiqlanganmi?", hint: "Servis yozuvlari yoki diagnostika bilan solishtirilganmi?", type: "select", options: ["Ha, tasdiqlangan", "Yo‘q", "Shubha bor", "Tekshirilmagan"] },
   { key: "engine_condition", title: "Dvigatel holati qanday?", hint: "Ovoz, tutun, moy yeyishi va diagnostika bo‘yicha.", type: "select", options: ["Yaxshi", "Mayda muammo bor", "Ta’mir talab", "Tekshirilmagan"] },
+  { key: "battery_condition", title: "Yuqori kuchlanishli batareya holati qanday?", hint: "Elektr yoki gibrid avtomobil batareyasining umumiy holati.", type: "select", options: ["Yaxshi", "Sig‘imi pasaygan", "Nosozlik bor", "Tekshirilmagan"] },
+  { key: "battery_soh", title: "Batareya sog‘ligi (SOH) necha foiz?", hint: "Diagnostika hisobotida ko‘rsatilgan qiymat. Bilmasangiz bo‘sh qoldiring.", type: "number" },
+  { key: "electric_range", title: "To‘liq quvvatda qancha masofa yuradi?", hint: "Amalda bir marta to‘liq quvvatlash bilan bosib o‘tadigan masofa (km).", type: "number" },
+  { key: "charging_status", title: "Quvvatlash tizimi holati qanday?", hint: "Quvvatlash porti va kabel bilan bog‘liq holat.", type: "select", options: ["Muammosiz ishlaydi", "Sekin quvvat oladi", "Nosozlik bor", "Tekshirilmagan"] },
+  { key: "electric_motor_condition", title: "Elektromotor holati qanday?", hint: "Shovqin, qizish va diagnostika natijasi.", type: "select", options: ["Yaxshi", "Mayda muammo bor", "Ta’mir talab", "Tekshirilmagan"] },
+  { key: "gas_equipment_status", title: "Gaz uskunasi holati qanday?", hint: "Metan yoki propan uskunasi, ballon va hujjatlari.", type: "select", options: ["Yaxshi, hujjatlari joyida", "Tekshiruv muddati yaqin", "Nosozlik bor", "Gaz uskunasi yo‘q", "Tekshirilmagan"] },
+  { key: "gas_cylinder_date", title: "Gaz ballonining oxirgi tekshiruv sanasi", hint: "Faqat metan/propan uskunasi bo‘lsa kiriting.", type: "text" },
   { key: "gearbox_condition", title: "Karobka holati qanday?", hint: "Urilish, kechikish yoki shovqin bormi?", type: "select", options: ["Yaxshi", "Mayda muammo bor", "Ta’mir talab", "Tekshirilmagan"] },
   { key: "suspension_condition", title: "Yurish qismi holati?", hint: "Amortizator, sharovoy va boshqa qismlar.", type: "select", options: ["Yaxshi", "Mayda ta’mir kerak", "Jiddiy ta’mir kerak", "Tekshirilmagan"] },
   { key: "brake_condition", title: "Tormoz tizimi holati?", hint: "Tormoz disklari, kolodka va ABS.", type: "select", options: ["Yaxshi", "Ta’mir kerak", "Nosoz", "Tekshirilmagan"] },
@@ -92,18 +99,35 @@ export default function Home() {
 
   const questions = useMemo(() => {
     const accidentRelated = new Set([
-      "accident_details",
-      "damaged_parts",
-      "replaced_parts",
-      "painted_parts",
-      "welding_rust",
-      "airbag_status",
+      "accident_details", "damaged_parts", "replaced_parts",
+      "painted_parts", "welding_rust", "airbag_status",
     ]);
-    // If the seller reports zero accidents, hide accident-specific follow-up questions.
-    return answers.accident_count === "0"
-      ? BASE_QUESTIONS.filter((item) => !accidentRelated.has(item.key))
-      : BASE_QUESTIONS;
-  }, [answers.accident_count]);
+    const fuel = String(answers.fuel_type || "");
+    const isElectric = fuel === "Elektr";
+    const isHybrid = fuel === "Gibrid";
+    const hasGas = ["Metan", "Propan", "Benzin + gaz"].includes(fuel);
+
+    return BASE_QUESTIONS.filter((item) => {
+      if (answers.accident_count === "0" && accidentRelated.has(item.key)) return false;
+
+      // Electric cars do not use a petrol/diesel engine or fuel leak checks.
+      if (isElectric && ["engine_condition", "leaks", "gas_equipment_status", "gas_cylinder_date"].includes(item.key)) return false;
+
+      // Combustion-only checks are hidden for pure EVs; hybrid cars keep engine checks.
+      if (!isElectric && ["battery_condition", "battery_soh", "electric_range", "charging_status", "electric_motor_condition"].includes(item.key)) return false;
+
+      // Gas equipment questions appear only when gas is selected.
+      if (!hasGas && ["gas_equipment_status", "gas_cylinder_date"].includes(item.key)) return false;
+
+      // Pure EVs use an electric drive unit, not a conventional gearbox inspection.
+      if (isElectric && item.key === "gearbox_condition") return false;
+      return true;
+    });
+  }, [answers.accident_count, answers.fuel_type]);
+
+  useEffect(() => {
+    setStep((current) => Math.min(current, questions.length - 1));
+  }, [questions.length]);
   const question = questions[step];
   const currentValue = answers[question.key] ?? (question.type === "multi" ? [] : "");
   const modelOptions = CATALOG[String(answers.make || "Chevrolet")] || [];
