@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type Answer = string | string[];
 type Question = {
@@ -125,9 +125,16 @@ export default function Home() {
     });
   }, [answers.accident_count, answers.fuel_type]);
 
+  const activeQuestionKey = useRef(questions[step]?.key);
+
   useEffect(() => {
-    setStep((current) => Math.min(current, questions.length - 1));
-  }, [questions.length]);
+    const previousKey = activeQuestionKey.current;
+    const matchingIndex = questions.findIndex((item) => item.key === previousKey);
+    const nextIndex = matchingIndex >= 0 ? matchingIndex : Math.min(step, questions.length - 1);
+    if (nextIndex !== step) setStep(nextIndex);
+    activeQuestionKey.current = questions[nextIndex]?.key;
+  }, [questions]);
+
   const question = questions[step];
   const currentValue = answers[question.key] ?? (question.type === "multi" ? [] : "");
   const modelOptions = CATALOG[String(answers.make || "Chevrolet")] || [];
@@ -195,8 +202,10 @@ export default function Home() {
       setError("Iltimos, javobni tanlang yoki kiriting.");
       return;
     }
-    if (step < questions.length - 1) setStep((s) => s + 1);
-    else void finish();
+    if (step < questions.length - 1) {
+      activeQuestionKey.current = questions[step + 1]?.key;
+      setStep((s) => s + 1);
+    } else void finish();
   }
 
   function toggleMulti(option: string) {
@@ -207,6 +216,7 @@ export default function Home() {
 
   function reset() {
     setAnswers(initial);
+    activeQuestionKey.current = questions[0]?.key;
     setStep(0);
     setResult(null);
     setError("");
@@ -259,7 +269,7 @@ export default function Home() {
 
               {error && <p className="wizard-error">{error}</p>}
               <div className="wizard-actions">
-                <button type="button" className="back-button" onClick={() => step > 0 ? setStep((s) => s - 1) : reset()}>{step === 0 ? "Boshidan" : "← Orqaga"}</button>
+                <button type="button" className="back-button" onClick={() => { if (step > 0) { activeQuestionKey.current = questions[step - 1]?.key; setStep((s) => s - 1); } else reset(); }}>{step === 0 ? "Boshidan" : "← Orqaga"}</button>
                 <button type="button" className="next-button" disabled={loading} onClick={next}>{loading ? "Hisoblanmoqda..." : step === questions.length - 1 ? "Natijani ko‘rish" : "Davom etish →"}</button>
               </div>
               <p className="wizard-footnote">Javoblar ketma-ket olinadi. Bilmagan savollaringizda “Bilmayman” yoki “Tekshirilmagan”ni tanlang.</p>
