@@ -1,10 +1,26 @@
-"""Dedicated Vercel function for the Telegram webhook path.
+"""Dedicated Vercel function for Telegram webhook requests.
 
-The two route registrations support both ASGI path forms: with and without
-Vercel's /api function prefix.
+Vercel maps this file to /api/telegram/webhook. ASGI functions can receive
+the request at the function root, so register "/" as the primary route and
+keep path aliases for runtimes that preserve the original URL.
 """
-from backend.main import app
-from bot.webhook import router as telegram_router
+from fastapi import FastAPI, Header, Request
 
-app.include_router(telegram_router)
-app.include_router(telegram_router, prefix="/api")
+from bot.webhook import telegram_webhook as process_telegram_webhook
+
+app = FastAPI()
+
+
+async def _handle(
+    request: Request,
+    x_telegram_bot_api_secret_token: str | None = Header(default=None),
+):
+    return await process_telegram_webhook(
+        request,
+        x_telegram_bot_api_secret_token,
+    )
+
+
+app.add_api_route("/", _handle, methods=["POST"])
+app.add_api_route("/telegram/webhook", _handle, methods=["POST"])
+app.add_api_route("/api/telegram/webhook", _handle, methods=["POST"])
