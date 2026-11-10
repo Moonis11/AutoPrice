@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Answer = string | string[];
 type Question = {
@@ -88,12 +88,29 @@ export default function Home() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
+  const [modelImage, setModelImage] = useState("");
 
   const questions = useMemo(() => BASE_QUESTIONS, []);
   const question = questions[step];
   const currentValue = answers[question.key] ?? (question.type === "multi" ? [] : "");
   const modelOptions = CATALOG[String(answers.make || "Chevrolet")] || [];
-  const modelImage = `https://loremflickr.com/1000/650/car,${encodeURIComponent(String(answers.make || "car"))},${encodeURIComponent(String(answers.model || "sedan"))}`;
+  const imageMake = String(answers.make || "car");
+  const imageModel = String(answers.model || "sedan");
+
+  useEffect(() => {
+    let active = true;
+    setImageFailed(false);
+    setModelImage(`https://loremflickr.com/1000/650/car,${encodeURIComponent(imageMake)},${encodeURIComponent(imageModel)}`);
+    const title = encodeURIComponent(`${imageMake} ${imageModel}`.replace(/ /g, "_"));
+    fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${title}`)
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => {
+        const image = data?.thumbnail?.source || data?.originalimage?.source;
+        if (active && image) setModelImage(image);
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [imageMake, imageModel]);
 
   function setAnswer(key: string, value: Answer) {
     setAnswers((old) => ({ ...old, [key]: value }));
