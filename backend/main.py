@@ -39,6 +39,29 @@ class CarInput(BaseModel):
     fuel_type: str | None = None
     region: str | None = None
     condition: str | None = None
+    accident_count: str | None = None
+    accident_details: str | None = None
+    damaged_parts: list[str] = Field(default_factory=list)
+    replaced_parts: list[str] = Field(default_factory=list)
+    painted_parts: list[str] = Field(default_factory=list)
+    welding_rust: str | None = None
+    airbag_status: str | None = None
+    seatbelt_status: str | None = None
+    owner_count: str | None = None
+    usage_type: str | None = None
+    service_history: str | None = None
+    mileage_verified: str | None = None
+    engine_condition: str | None = None
+    gearbox_condition: str | None = None
+    suspension_condition: str | None = None
+    brake_condition: str | None = None
+    leaks: str | None = None
+    tires_condition: str | None = None
+    electronics_condition: str | None = None
+    documents_status: str | None = None
+    legal_restrictions: str | None = None
+    vin: str | None = None
+    notes: str | None = None
 
 
 @app.get("/health")
