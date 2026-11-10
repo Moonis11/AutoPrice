@@ -1,4 +1,4 @@
-"""AutoPrice API starter. A trained and validated model is required for estimates."""
+"""AutoPrice API. A trained model is required before returning an estimate."""
 from pathlib import Path
 
 import joblib
@@ -6,7 +6,11 @@ import pandas as pd
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-app = FastAPI(title="AutoPrice API", version="0.1.0")
+app = FastAPI(
+    title="AutoPrice API",
+    description="Used-car asking-price estimates for Uzbekistan; outputs are indicative only.",
+    version="0.2.0",
+)
 MODEL_PATH = Path("models/price_model.joblib")
 
 
@@ -18,6 +22,7 @@ class CarInput(BaseModel):
     transmission: str | None = None
     fuel_type: str | None = None
     region: str | None = None
+    condition: str | None = None
 
 
 @app.get("/health")
@@ -30,17 +35,32 @@ def valuation(car: CarInput):
     if not MODEL_PATH.exists():
         raise HTTPException(
             status_code=503,
-            detail="Model hali tayyor emas. Avval ruxsatli bozor datasetini yig'ish va modelni validatsiya qilish kerak.",
+            detail="Model hali tayyor emas. Ruxsatli va tozalangan bozor datasetini yig'ish kerak.",
         )
     try:
         bundle = joblib.load(MODEL_PATH)
-        estimate = float(bundle["pipeline"].predict(pd.DataFrame([car.model_dump()]))[0])
+        pipeline = bundle["pipeline"]
+        features = bundle["metrics"]["features"]
+        input_data = car.model_dump()
+        row = pd.DataFrame([{name: input_data.get(name) for name in features}])
+        estimate = max(0.0, float(pipeline.predict(row)[0]))
+        interval_error = float(bundle.get("interval_error_uzs", 0.0))
+        lower = max(0.0, estimate - interval_error)
+        upper = estimate + interval_error
         return {
             "estimated_price": round(estimate),
+            "estimated_range": {
+                "lower": round(lower),
+                "upper": round(upper),
+            },
             "currency": "UZS",
             "price_type": "estimated_asking_price",
-            "metrics": bundle.get("metrics", {}),
-            "disclaimer": "Bu statistik taxmin, yakuniy bitim narxi emas.",
+            "model_metrics": bundle.get("metrics", {}),
+            "uncertainty_note": (
+                "Oraliq test to'plamidagi 90-persentil mutlaq xatoga asoslangan; "
+                "bu kafolatlangan ishonch oralig'i emas."
+            ),
+            "disclaimer": "Bu statistik taxmin, yakuniy bitim narxi emas. Avtomobilni ko'zdan kechirish zarur.",
         }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Baholash xatosi: {exc}") from exc
