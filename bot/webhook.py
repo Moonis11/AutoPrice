@@ -115,7 +115,7 @@ async def estimate(message: Message, command: CommandObject) -> None:
 @router.post("/telegram/webhook")
 async def telegram_webhook(
     request: Request,
-    x_telegram_bot_api_secret_token: str | None = Header(default=None),
+    x_telegram_bot_api_secret_token: str | None = Header(default=None, alias="X-Telegram-Bot-Api-Secret-Token"),
 ):
     expected_secret = (os.getenv("TELEGRAM_WEBHOOK_SECRET") or "").strip()
     if not expected_secret:
