@@ -1,5 +1,6 @@
 """Telegram webhook for AutoPrice. Stateless command-based MVP for serverless hosting."""
 import hmac
+import logging
 import os
 
 from aiogram import Bot, Dispatcher, Router
@@ -8,6 +9,8 @@ from aiogram.types import Message, Update
 from fastapi import APIRouter, Header, HTTPException, Request
 
 from backend.main import CarInput, valuation
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 telegram_router = Router()
@@ -18,7 +21,7 @@ _bot = None
 
 def _get_bot() -> Bot:
     global _bot
-    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    token = (os.getenv("TELEGRAM_BOT_TOKEN") or "").strip()
     if not token:
         raise HTTPException(status_code=503, detail="TELEGRAM_BOT_TOKEN sozlanmagan.")
     if _bot is None:
@@ -77,7 +80,7 @@ async def estimate(message: Message, command: CommandObject) -> None:
             region=region,
             condition=condition,
         )
-    except (ValueError, Exception):
+    except (ValueError, TypeError):
         await message.answer("Ma’lumotlarda xatolik bor. Yil va probegni raqam bilan kiriting.")
         return
 
@@ -94,6 +97,7 @@ async def estimate(message: Message, command: CommandObject) -> None:
             await message.answer(f"Baholash amalga oshmadi: {exc.detail}")
         return
     except Exception:
+        logger.exception("AutoPrice valuation failed")
         await message.answer("Hozir baholashda xatolik yuz berdi. Keyinroq qayta urinib ko‘ring.")
         return
 
@@ -113,7 +117,7 @@ async def telegram_webhook(
     request: Request,
     x_telegram_bot_api_secret_token: str | None = Header(default=None),
 ):
-    expected_secret = os.getenv("TELEGRAM_WEBHOOK_SECRET")
+    expected_secret = (os.getenv("TELEGRAM_WEBHOOK_SECRET") or "").strip()
     if not expected_secret:
         raise HTTPException(status_code=503, detail="TELEGRAM_WEBHOOK_SECRET sozlanmagan.")
     if not x_telegram_bot_api_secret_token or not hmac.compare_digest(
@@ -126,7 +130,7 @@ async def telegram_webhook(
         payload = await request.json()
         update = Update.model_validate(payload)
         await _dispatcher.feed_update(bot, update)
-    except Exception as exc:
-        # Telegram retries failed webhook deliveries; avoid leaking secrets or payloads.
-        raise HTTPException(status_code=500, detail="Telegram update qayta ishlanmadi.") from exc
+    except Exception:
+        logger.exception("Telegram webhook update failed")
+        raise HTTPException(status_code=500, detail="Telegram update qayta ishlanmadi.")
     return {"ok": True}
