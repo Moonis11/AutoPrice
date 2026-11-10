@@ -123,6 +123,13 @@ async def telegram_webhook(
     if not x_telegram_bot_api_secret_token or not hmac.compare_digest(
         x_telegram_bot_api_secret_token, expected_secret
     ):
+        # Log diagnostic metadata only; never log either secret value.
+        logger.warning(
+            "Telegram webhook secret mismatch: header_present=%s header_length=%s expected_length=%s",
+            bool(x_telegram_bot_api_secret_token),
+            len(x_telegram_bot_api_secret_token or ""),
+            len(expected_secret),
+        )
         raise HTTPException(status_code=403, detail="Webhook secret noto‘g‘ri.")
 
     bot = _get_bot()
