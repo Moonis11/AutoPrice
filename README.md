@@ -62,3 +62,12 @@ Set `CORS_ORIGINS` to the frontend origin when deploying the API. Set `NEXT_PUBL
 pytest -q
 ```
 GitHub Actions runs the Python tests on pushes and pull requests. Frontend build verification is a separate next step.
+
+
+## Telegram bot (Vercel webhook)
+
+The Telegram bot lives in `bot/` and is mounted by `api/index.py`. It uses a stateless `/estimate` command, which is suitable for serverless execution without an external session store.
+
+See [bot setup instructions](bot/README.md) for the required Vercel environment variables and one-time Telegram webhook registration. Do not commit bot tokens or webhook secrets.
+
+Vercel deployment is not complete until the repository is imported into a Vercel project, environment variables are configured, and the deployment build succeeds. The bot will not return a price until a model trained on permitted real data is present.
