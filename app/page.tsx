@@ -1,158 +1,248 @@
 "use client";
 
-import { useState } from "react";
-import type { FormEvent } from "react";
+import { useMemo, useState } from "react";
 
-type ValuationResponse = {
-  estimated_price: number;
-  estimated_range: { lower: number; upper: number };
-  currency: string;
-  model_metrics?: { rows?: number; mae_uzs?: number; r2?: number };
-  uncertainty_note?: string;
-  disclaimer?: string;
+type Answer = string | string[];
+type Question = {
+  key: string;
+  title: string;
+  hint: string;
+  type: "select" | "text" | "number" | "multi";
+  options?: string[];
+  required?: boolean;
+};
+
+const CATALOG: Record<string, string[]> = {
+  Chevrolet: ["Cobalt", "Damas", "Labo", "Nexia 3", "Gentra", "Lacetti", "Spark", "Matiz", "Onix", "Tracker", "Captiva", "Malibu", "Equinox", "Traverse", "Tahoe", "Orlando", "Epica"],
+  BYD: ["Song Plus", "Song Pro", "Chazor", "Seagull", "Yuan Up", "Han", "Qin Plus", "Destroyer 05", "Tang", "E2"],
+  Kia: ["K5", "K8", "Sonet", "Seltos", "Sportage", "Sorento", "Carnival", "Cerato", "Rio", "Picanto"],
+  Hyundai: ["Elantra", "Sonata", "Tucson", "Santa Fe", "Creta", "Accent", "Staria", "Palisade", "Venue"],
+  Toyota: ["Camry", "Corolla", "RAV4", "Prado", "Land Cruiser", "Hilux", "Highlander", "Avalon"],
+  Chery: ["Tiggo 2", "Tiggo 4", "Tiggo 7", "Tiggo 8", "Arrizo 6", "Arrizo 8"],
+  Haval: ["Jolion", "H6", "M6", "Dargo", "H9"],
+  Geely: ["Coolray", "Monjaro", "Atlas", "Emgrand", "Geometry C"],
+  Jetour: ["X70", "X70 Plus", "X90", "T2", "Dashing"],
+  Lada: ["Vesta", "Granta", "Largus", "Niva Travel", "Niva Legend", "XRAY"],
+  Volkswagen: ["Caddy", "Polo", "Jetta", "Tiguan", "Passat", "Teramont"],
+  Renault: ["Logan", "Duster", "Kaptur", "Sandero"],
+  Honda: ["Civic", "Accord", "CR-V", "HR-V"],
+  BMW: ["3 Series", "5 Series", "7 Series", "X3", "X5", "X6"],
+  Mercedes-Benz: ["C-Class", "E-Class", "S-Class", "GLC", "GLE", "GLS", "Sprinter"],
+  Lexus: ["ES", "RX", "NX", "LX", "GX"],
+  Audi: ["A4", "A6", "Q5", "Q7"],
+  Nissan: ["X-Trail", "Patrol", "Qashqai", "Altima"],
+  Mazda: ["Mazda 3", "Mazda 6", "CX-5", "CX-9"],
+  Mitsubishi: ["Outlander", "Pajero", "L200", "ASX"],
+  Ford: ["Transit", "Explorer", "Mustang", "Mondeo"],
+  Isuzu: ["D-Max", "NQR", " NPR"],
+  Boshqa: ["Boshqa model"],
+};
+
+const BASE_QUESTIONS: Question[] = [
+  { key: "make", title: "Avtomobil markasi qaysi?", hint: "O‘zbekistonda uchraydigan markalardan tanlang.", type: "select", options: Object.keys(CATALOG), required: true },
+  { key: "model", title: "Modelini tanlang", hint: "Ro‘yxatda bo‘lmasa, nomini qo‘lda kiriting.", type: "select", required: true },
+  { key: "year", title: "Ishlab chiqarilgan yili?", hint: "Texnik pasportdagi yilni kiriting.", type: "number", required: true },
+  { key: "mileage_km", title: "Necha kilometr yurgan?", hint: "Probegni km hisobida kiriting.", type: "number", required: true },
+  { key: "region", title: "Avtomobil qaysi hududda?", hint: "Hozir sotilayotgan yoki joylashgan hudud.", type: "select", options: ["Toshkent shahri", "Toshkent viloyati", "Samarqand", "Farg‘ona", "Andijon", "Namangan", "Buxoro", "Qashqadaryo", "Surxondaryo", "Xorazm", "Navoiy", "Jizzax", "Sirdaryo", "Qoraqalpog‘iston"], required: true },
+  { key: "transmission", title: "Uzatmalar qutisi qanday?", hint: "Avtomobil transmissiyasi turini tanlang.", type: "select", options: ["Avtomat", "Mexanika", "Variator", "Robot", "Boshqa"] },
+  { key: "fuel_type", title: "Yoqilg‘i turi qaysi?", hint: "Asosiy yoqilg‘i turini belgilang.", type: "select", options: ["Benzin", "Metan", "Propan", "Benzin + gaz", "Dizel", "Gibrid", "Elektr"] },
+  { key: "condition", title: "Umumiy holatini baholang", hint: "Sotuvchi bergan dastlabki baho. Keyingi savollar aniqlashtiradi.", type: "select", options: ["A’lo", "Yaxshi", "O‘rtacha", "Ta’mirtalab"] },
+  { key: "accident_count", title: "Necha marta avariyaga uchragan?", hint: "Aniq bilmasangiz, “Bilmayman”ni tanlang.", type: "select", options: ["0", "1", "2", "3", "4 yoki undan ko‘p", "Bilmayman"] },
+  { key: "accident_details", title: "Avariya haqida qo‘shimcha ma’lumot", hint: "Qachon va qaysi tomondan urilganini yozing. Bo‘lmasa, “Ma’lumot yo‘q”.", type: "text" },
+  { key: "damaged_parts", title: "Qaysi qismlari shikastlangan?", hint: "Bir nechta javobni tanlash mumkin.", type: "multi", options: ["Old bamper", "Orqa bamper", "Kaput", "Bagaj qopqog‘i", "Old qanot", "Orqa qanot", "Eshiklar", "Tom", "Lonjeron", "Ustunlar", "Ma’lumot yo‘q"] },
+  { key: "replaced_parts", title: "Qaysi qismlari almashtirilgan?", hint: "Faqat almashtirilgani ma’lum bo‘lgan qismlarni belgilang.", type: "multi", options: ["Bamper", "Kaput", "Bagaj qopqog‘i", "Qanot", "Eshik", "Faralar", "Radiator", "Oyna", "Lonjeron", "Boshqa", "Almashtirilmagan", "Bilmayman"] },
+  { key: "painted_parts", title: "Qaysi qismlari bo‘yalgan?", hint: "Bo‘yalgan panellarni belgilang.", type: "multi", options: ["Kaput", "Bagaj", "Old chap qanot", "Old o‘ng qanot", "Orqa chap qanot", "Orqa o‘ng qanot", "Old chap eshik", "Old o‘ng eshik", "Orqa chap eshik", "Orqa o‘ng eshik", "Tom", "Bo‘yalmagan", "Bilmayman"] },
+  { key: "welding_rust", title: "Payvandlash yoki zang bormi?", hint: "Kuzovdagi kesish, payvandlash va zang holati.", type: "select", options: ["Yo‘q", "Payvandlash bor", "Zang bor", "Ikkalasi ham bor", "Tekshirilmagan"] },
+  { key: "airbag_status", title: "Airbaglar holati qanday?", hint: "Xavfsizlik yostiqchalari ishlash holati.", type: "select", options: ["Ochilgan emas, ishlaydi", "Avariya vaqtida ochilgan", "Almashtirilgan", "Ishlamaydi yoki xato chirog‘i yonadi", "Tekshirilmagan"] },
+  { key: "seatbelt_status", title: "Xavfsizlik kamarlari holati?", hint: "Kamar va tortgichlar (pretensioner) holati.", type: "select", options: ["Hammasi ishlaydi", "Ta’mirlangan/almashtirilgan", "Nosoz", "Tekshirilmagan"] },
+  { key: "owner_count", title: "Nechta egasi bo‘lgan?", hint: "Hujjatdagi egalik almashishlariga qarab kiriting.", type: "select", options: ["1", "2", "3", "4", "5 yoki undan ko‘p", "Bilmayman"] },
+  { key: "usage_type", title: "Avtomobil qanday ishlatilgan?", hint: "Avvalgi foydalanish turini tanlang.", type: "select", options: ["Shaxsiy", "Taksi", "Korporativ/xizmat", "Ijara", "Aralash", "Bilmayman"] },
+  { key: "service_history", title: "Servis tarixi bormi?", hint: "Moy va ehtiyot qismlar almashinuvi yozuvlari.", type: "select", options: ["To‘liq servis tarixi bor", "Qisman bor", "Yo‘q", "Bilmayman"] },
+  { key: "mileage_verified", title: "Probeg tasdiqlanganmi?", hint: "Servis yozuvlari yoki diagnostika bilan solishtirilganmi?", type: "select", options: ["Ha, tasdiqlangan", "Yo‘q", "Shubha bor", "Tekshirilmagan"] },
+  { key: "engine_condition", title: "Dvigatel holati qanday?", hint: "Ovoz, tutun, moy yeyishi va diagnostika bo‘yicha.", type: "select", options: ["Yaxshi", "Mayda muammo bor", "Ta’mir talab", "Tekshirilmagan"] },
+  { key: "gearbox_condition", title: "Karobka holati qanday?", hint: "Urilish, kechikish yoki shovqin bormi?", type: "select", options: ["Yaxshi", "Mayda muammo bor", "Ta’mir talab", "Tekshirilmagan"] },
+  { key: "suspension_condition", title: "Yurish qismi holati?", hint: "Amortizator, sharovoy va boshqa qismlar.", type: "select", options: ["Yaxshi", "Mayda ta’mir kerak", "Jiddiy ta’mir kerak", "Tekshirilmagan"] },
+  { key: "brake_condition", title: "Tormoz tizimi holati?", hint: "Tormoz disklari, kolodka va ABS.", type: "select", options: ["Yaxshi", "Ta’mir kerak", "Nosoz", "Tekshirilmagan"] },
+  { key: "leaks", title: "Suyuqlik sizishi bormi?", hint: "Moy, antifriz yoki boshqa suyuqliklar.", type: "select", options: ["Yo‘q", "Moy sizadi", "Antifriz sizadi", "Boshqa suyuqlik", "Tekshirilmagan"] },
+  { key: "tires_condition", title: "Shinalar holati qanday?", hint: "To‘rtta shinaning umumiy eskirish darajasi.", type: "select", options: ["Yaxshi", "O‘rtacha", "Almashtirish kerak", "Har xil holatda", "Tekshirilmagan"] },
+  { key: "electronics_condition", title: "Elektronika va konditsioner ishlaydimi?", hint: "Konditsioner, oynalar, sensorlar va panel.", type: "select", options: ["Hammasi ishlaydi", "Ayrim nosozliklar bor", "Bir nechta tizim ishlamaydi", "Tekshirilmagan"] },
+  { key: "documents_status", title: "Hujjatlari joyidami?", hint: "Texnik pasport va egalik hujjatlari.", type: "select", options: ["To‘liq va joyida", "Ayrim hujjatlar yetishmaydi", "Muammo bor", "Tekshirilmagan"] },
+  { key: "legal_restrictions", title: "Garov, taqiq yoki jarima muammosi bormi?", hint: "Rasmiy manba orqali alohida tekshirish talab etiladi.", type: "select", options: ["Yo‘q, tekshirilgan", "Bor", "Tekshirilmagan"] },
+  { key: "vin", title: "VIN-kodni kiriting (ixtiyoriy)", hint: "17 belgili kuzov identifikatsiya raqami. Uni ommaga ko‘rsatmaymiz.", type: "text" },
+  { key: "notes", title: "Qo‘shimcha izoh bormi?", hint: "Komplektatsiya, kalitlar soni, qo‘shimcha jihozlar yoki boshqa muhim ma’lumotlar.", type: "text" },
+];
+
+const initial: Record<string, Answer> = {
+  make: "Chevrolet", model: "Cobalt", year: "2021", mileage_km: "50000",
+  region: "Toshkent shahri", transmission: "Avtomat", fuel_type: "Benzin",
+  condition: "Yaxshi",
 };
 
 const money = (value: number) =>
-  new Intl.NumberFormat("uz-UZ", { maximumFractionDigits: 0 }).format(value) + " so'm";
+  new Intl.NumberFormat("uz-UZ", { maximumFractionDigits: 0 }).format(value) + " so‘m";
 
 export default function Home() {
-  const [form, setForm] = useState({
-    make: "Chevrolet",
-    model: "",
-    year: "2021",
-    mileage_km: "50000",
-    transmission: "",
-    fuel_type: "",
-    region: "Toshkent shahri",
-    condition: "Yaxshi",
-  });
-  const [result, setResult] = useState<ValuationResponse | null>(null);
+  const [answers, setAnswers] = useState<Record<string, Answer>>(initial);
+  const [step, setStep] = useState(0);
+  const [result, setResult] = useState<any>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
 
-  function update(key: keyof typeof form, value: string) {
-    setForm((current) => ({ ...current, [key]: value }));
+  const questions = useMemo(() => BASE_QUESTIONS, []);
+  const question = questions[step];
+  const currentValue = answers[question.key] ?? (question.type === "multi" ? [] : "");
+  const modelOptions = CATALOG[String(answers.make || "Chevrolet")] || [];
+  const modelImage = `https://loremflickr.com/1000/650/car,${encodeURIComponent(String(answers.make || "car"))},${encodeURIComponent(String(answers.model || "sedan"))}`;
+
+  function setAnswer(key: string, value: Answer) {
+    setAnswers((old) => ({ ...old, [key]: value }));
+    setError("");
+    if (key === "make") {
+      setAnswers((old) => ({ ...old, make: value, model: "" }));
+      setImageFailed(false);
+    }
   }
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function canContinue() {
+    if (!question.required) return true;
+    if (Array.isArray(currentValue)) return currentValue.length > 0;
+    return String(currentValue).trim().length > 0;
+  }
+
+  async function finish() {
     setLoading(true);
     setError("");
     setResult(null);
-    const api = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
     try {
+      const api = process.env.NEXT_PUBLIC_API_URL || "";
+      if (!api) throw new Error("API manzili sozlanmagan. NEXT_PUBLIC_API_URL ni Vercel’da tekshirish kerak.");
+      const payload = {
+        ...answers,
+        year: Number(answers.year),
+        mileage_km: Number(answers.mileage_km),
+      };
       const response = await fetch(api + "/api/v1/valuation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...form,
-          year: Number(form.year),
-          mileage_km: Number(form.mileage_km),
-        }),
+        body: JSON.stringify(payload),
       });
       const body = await response.json();
-      if (!response.ok) {
-        throw new Error(body.detail || "Baholash vaqtida xatolik yuz berdi.");
-      }
+      if (!response.ok) throw new Error(body.detail || "Baholashda xatolik yuz berdi.");
       setResult(body);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Server bilan bog'lanib bo'lmadi.");
+      setError(err instanceof Error ? err.message : "Server bilan bog‘lanib bo‘lmadi.");
     } finally {
       setLoading(false);
     }
   }
 
+  function next() {
+    if (!canContinue()) {
+      setError("Iltimos, javobni tanlang yoki kiriting.");
+      return;
+    }
+    if (step < questions.length - 1) setStep((s) => s + 1);
+    else void finish();
+  }
+
+  function toggleMulti(option: string) {
+    const selected = Array.isArray(currentValue) ? currentValue : [];
+    const next = selected.includes(option) ? selected.filter((v) => v !== option) : [...selected.filter((v) => !["Yo‘q", "Bo‘yalmagan", "Almashtirilmagan"].includes(v)), option];
+    setAnswer(question.key, next);
+  }
+
+  function reset() {
+    setAnswers(initial);
+    setStep(0);
+    setResult(null);
+    setError("");
+    setImageFailed(false);
+  }
+
   return (
-    <main>
-      <nav className="nav">
-        <a className="brand" href="#"><span className="brand-mark">A</span> AutoPrice</a>
+    <main className="wizard-shell">
+      <header className="wizard-nav">
+        <a className="brand" href="/"><span className="brand-mark">A</span> AutoPrice</a>
         <span className="nav-note">O‘zbekiston avtomobil bozori</span>
-      </nav>
+      </header>
 
-      <section className="hero">
-        <div className="eyebrow"><span /> Aqlli avtomobil baholash</div>
-        <h1>Avtomobilingiz<br /><em>qancha turadi?</em></h1>
-        <p className="hero-copy">Mashina ma’lumotlarini kiriting. AutoPrice bozor ma’lumotlari asosida taxminiy narxni hisoblashga yordam beradi.</p>
-      </section>
-
-      <section className="workspace">
-        <form className="form-card" onSubmit={submit}>
-          <div className="card-heading">
-            <div><span className="step">01 / AVTOMOBIL</span><h2>Ma’lumotlarni kiriting</h2></div>
-            <span className="required-note">* Majburiy</span>
+      {!result ? (
+        <section className="wizard">
+          <div className="wizard-top">
+            <div><span className="eyebrow">AQLLI AVTOMOBIL BAHOLASH</span><h1>Avtomobil haqida<br/><em>birgalikda bilib olamiz.</em></h1></div>
+            <div className="progress-count">{step + 1}<span> / {questions.length}</span></div>
           </div>
+          <div className="progress-track"><div style={{ width: `${((step + 1) / questions.length) * 100}%` }} /></div>
+          <div className="question-layout">
+            <section className="question-panel">
+              <span className="question-kicker">SAVOL {String(step + 1).padStart(2, "0")}</span>
+              <h2>{question.title}</h2>
+              <p className="question-hint">{question.hint}</p>
 
-          <div className="field-grid">
-            <label>Marka *
-              <select value={form.make} onChange={(e) => update("make", e.target.value)}>
-                {["Chevrolet", "BYD", "Kia", "Hyundai", "Toyota", "Lada", "Chery", "Volkswagen", "Boshqa"].map((v) => <option key={v}>{v}</option>)}
-              </select>
-            </label>
-            <label>Model *
-              <input required value={form.model} onChange={(e) => update("model", e.target.value)} placeholder="Masalan, Cobalt" />
-            </label>
-            <label>Ishlab chiqarilgan yil *
-              <input required type="number" min="1980" max="2035" value={form.year} onChange={(e) => update("year", e.target.value)} />
-            </label>
-            <label>Yurgan masofasi (km) *
-              <input required type="number" min="0" max="1000000" value={form.mileage_km} onChange={(e) => update("mileage_km", e.target.value)} />
-            </label>
-            <label>Uzatmalar qutisi
-              <select value={form.transmission} onChange={(e) => update("transmission", e.target.value)}>
-                <option value="">Tanlanmagan</option><option>Avtomat</option><option>Mexanika</option><option>Variator</option><option>Robot</option>
-              </select>
-            </label>
-            <label>Yoqilg‘i turi
-              <select value={form.fuel_type} onChange={(e) => update("fuel_type", e.target.value)}>
-                <option value="">Tanlanmagan</option><option>Benzin</option><option>Gaz</option><option>Gibrid</option><option>Elektr</option><option>Dizel</option>
-              </select>
-            </label>
-            <label>Hudud
-              <select value={form.region} onChange={(e) => update("region", e.target.value)}>
-                {["Toshkent shahri", "Toshkent viloyati", "Samarqand", "Farg‘ona", "Andijon", "Namangan", "Buxoro", "Qashqadaryo", "Surxondaryo", "Xorazm", "Navoiy", "Jizzax", "Sirdaryo", "Qoraqalpog‘iston"].map((v) => <option key={v}>{v}</option>)}
-              </select>
-            </label>
-            <label>Umumiy holati
-              <select value={form.condition} onChange={(e) => update("condition", e.target.value)}>
-                <option>Yaxshi</option><option>A’lo</option><option>O‘rtacha</option><option>Ta’mirtalab</option>
-              </select>
-            </label>
+              {question.type === "select" && (
+                <div className="choice-list">
+                  {(question.key === "model" ? modelOptions : question.options || []).map((option) => (
+                    <button type="button" key={option} className={currentValue === option ? "choice selected" : "choice"} onClick={() => setAnswer(question.key, option)}>
+                      <span>{option}</span><i>{currentValue === option ? "✓" : "＋"}</i>
+                    </button>
+                  ))}
+                  {question.key === "model" && <input className="other-model" value={typeof currentValue === "string" && !modelOptions.includes(currentValue) ? currentValue : ""} onChange={(e) => setAnswer("model", e.target.value)} placeholder="Model ro‘yxatda yo‘q — nomini yozing"/>}
+                </div>
+              )}
+
+              {question.type === "multi" && (
+                <div className="choice-grid">
+                  {(question.options || []).map((option) => {
+                    const checked = Array.isArray(currentValue) && currentValue.includes(option);
+                    return <button type="button" key={option} className={checked ? "choice selected" : "choice"} onClick={() => toggleMulti(option)}><span>{option}</span><i>{checked ? "✓" : "+"}</i></button>;
+                  })}
+                </div>
+              )}
+
+              {(question.type === "text" || question.type === "number") && (
+                <input className="answer-input" type={question.type} value={String(currentValue)} onChange={(e) => setAnswer(question.key, e.target.value)} placeholder={question.type === "number" ? "Raqam kiriting" : "Javobingizni yozing"} min={question.key === "year" ? 1980 : 0} max={question.key === "year" ? 2035 : 1000000}/>
+              )}
+
+              {error && <p className="wizard-error">{error}</p>}
+              <div className="wizard-actions">
+                <button type="button" className="back-button" onClick={() => step > 0 ? setStep((s) => s - 1) : reset()}>{step === 0 ? "Boshidan" : "← Orqaga"}</button>
+                <button type="button" className="next-button" disabled={loading} onClick={next}>{loading ? "Hisoblanmoqda..." : step === questions.length - 1 ? "Natijani ko‘rish" : "Davom etish →"}</button>
+              </div>
+              <p className="wizard-footnote">Javoblar ketma-ket olinadi. Bilmagan savollaringizda “Bilmayman” yoki “Tekshirilmagan”ni tanlang.</p>
+            </section>
+
+            <aside className="vehicle-preview">
+              <div className="preview-image-wrap">
+                {!imageFailed ? <img src={modelImage} alt={`${answers.make || "Avtomobil"} ${answers.model || ""} avtomobil rasmi`} onError={() => setImageFailed(true)}/> : <div className="preview-fallback">AUTO<br/>PRICE</div>}
+              </div>
+              <div className="preview-caption"><span>Tanlangan avtomobil</span><strong>{String(answers.make || "Marka")} {String(answers.model || "Model")}</strong><small>{String(answers.year || "Yil")} · {String(answers.mileage_km || "—")} km</small></div>
+              <p className="preview-note">Rasm namunaviy bo‘lishi mumkin. Aniq komplektatsiya va kuzov ko‘rinishi bilan farq qilishi mumkin.</p>
+            </aside>
           </div>
-
-          <button className="submit" type="submit" disabled={loading || !form.model.trim()}>
-            {loading ? "Hisoblanmoqda..." : "Avtomobil narxini baholash"} <span>↗</span>
-          </button>
-          <p className="privacy">Ma’lumotlar hozircha faqat baholash so‘rovi uchun ishlatiladi.</p>
-        </form>
-
-        <aside className="result-card" aria-live="polite">
-          <span className="step">02 / NATIJA</span>
-          {result ? (
-            <div className="result-content">
-              <div className="result-icon">✓</div>
-              <p className="result-label">Taxminiy bozor narxi</p>
-              <div className="result-price">{money(result.estimated_price)}</div>
-              <div className="range-box"><span>Taxminiy oraliq</span><strong>{money(result.estimated_range.lower)} – {money(result.estimated_range.upper)}</strong></div>
-              <p className="fine-print">{result.uncertainty_note}</p>
-              <p className="fine-print">{result.disclaimer}</p>
+        </section>
+      ) : (
+        <section className="report">
+          <div className="report-heading"><span className="eyebrow">AUTOPRICE HISOBOTI</span><h1>{String(answers.make)} {String(answers.model)}</h1><p>{String(answers.year)} · {String(answers.mileage_km)} km · {String(answers.region)}</p></div>
+          <div className="report-grid">
+            <div className="report-main">
+              {!imageFailed && <img className="report-car" src={modelImage} alt={`${answers.make} ${answers.model}`} onError={() => setImageFailed(true)}/>}
+              <span className="question-kicker">TAXMINIY BOZOR NARXI</span>
+              <strong className="report-price">{money(result.estimated_price)}</strong>
+              <div className="range-box"><span>Taxminiy oraliq</span><b>{money(result.estimated_range.lower)} – {money(result.estimated_range.upper)}</b></div>
+              <p className="report-disclaimer">{result.disclaimer || "Bu statistik taxmin, yakuniy bitim narxi emas."}</p>
+              <p className="report-disclaimer">{result.uncertainty_note}</p>
             </div>
-          ) : (
-            <div className="empty-result">
-              <div className="car-illustration">⌁</div>
-              <h3>Baholash natijasi shu yerda chiqadi</h3>
-              <p>Avtomobil ma’lumotlarini to‘ldiring va baholashni boshlang.</p>
-              {error && <div className="error">{error}</div>}
-              <div className="result-foot"><span>UZ</span><span>UZS · O‘zbekiston so‘mi</span></div>
-            </div>
-          )}
-          {result && <button className="reset" onClick={() => { setResult(null); setError(""); }}>Yangi baholash ↗</button>}
-        </aside>
-      </section>
-
-      <section className="disclaimer">
-        <strong>Izoh:</strong> AutoPrice hozir MVP sinov bosqichida. Haqiqiy bozor datasetiga ulanmaguncha model narx chiqarmaydi. Keyingi natijalar e’lon narxlariga asoslangan taxmin bo‘ladi, yakuniy sotuv narxi yoki ekspert xulosasi emas.
-      </section>
-      <footer><span>AutoPrice © 2026</span><span>Where data meets the market.</span></footer>
+            <div className="report-details"><h2>Avtomobil holati</h2>{questions.map((q) => {
+              const v = answers[q.key];
+              if (v === undefined || v === "" || (Array.isArray(v) && v.length === 0)) return null;
+              return <div className="detail-row" key={q.key}><span>{q.title}</span><b>{Array.isArray(v) ? v.join(", ") : String(v)}</b></div>;
+            })}</div>
+          </div>
+          <button className="next-button new-check" onClick={reset}>Yangi avtomobilni baholash ↗</button>
+        </section>
+      )}
+      <footer className="wizard-footer"><span>AutoPrice © 2026</span><span>Taxminiy baholash · Yakuniy ekspert xulosasi emas</span></footer>
     </main>
   );
 }
