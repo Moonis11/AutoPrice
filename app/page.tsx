@@ -27,7 +27,7 @@ const CATALOG: Record<string, string[]> = {
   Renault: ["Logan", "Duster", "Kaptur", "Sandero"],
   Honda: ["Civic", "Accord", "CR-V", "HR-V"],
   BMW: ["3 Series", "5 Series", "7 Series", "X3", "X5", "X6"],
-  Mercedes-Benz: ["C-Class", "E-Class", "S-Class", "GLC", "GLE", "GLS", "Sprinter"],
+  "Mercedes-Benz": ["C-Class", "E-Class", "S-Class", "GLC", "GLE", "GLS", "Sprinter"],
   Lexus: ["ES", "RX", "NX", "LX", "GX"],
   Audi: ["A4", "A6", "Q5", "Q7"],
   Nissan: ["X-Trail", "Patrol", "Qashqai", "Altima"],
