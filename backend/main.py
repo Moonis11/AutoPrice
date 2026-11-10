@@ -1,9 +1,11 @@
 """AutoPrice API. A trained model is required before returning an estimate."""
+import os
 from pathlib import Path
 
 import joblib
 import pandas as pd
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 app = FastAPI(
@@ -11,7 +13,21 @@ app = FastAPI(
     description="Used-car asking-price estimates for Uzbekistan; outputs are indicative only.",
     version="0.2.0",
 )
-MODEL_PATH = Path("models/price_model.joblib")
+
+allowed_origins = [
+    origin.strip()
+    for origin in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+    if origin.strip()
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
+)
+
+MODEL_PATH = Path(os.getenv("MODEL_PATH", "models/price_model.joblib"))
 
 
 class CarInput(BaseModel):
@@ -45,21 +61,16 @@ def valuation(car: CarInput):
         row = pd.DataFrame([{name: input_data.get(name) for name in features}])
         estimate = max(0.0, float(pipeline.predict(row)[0]))
         interval_error = float(bundle.get("interval_error_uzs", 0.0))
-        lower = max(0.0, estimate - interval_error)
-        upper = estimate + interval_error
         return {
             "estimated_price": round(estimate),
             "estimated_range": {
-                "lower": round(lower),
-                "upper": round(upper),
+                "lower": round(max(0.0, estimate - interval_error)),
+                "upper": round(estimate + interval_error),
             },
             "currency": "UZS",
             "price_type": "estimated_asking_price",
             "model_metrics": bundle.get("metrics", {}),
-            "uncertainty_note": (
-                "Oraliq test to'plamidagi 90-persentil mutlaq xatoga asoslangan; "
-                "bu kafolatlangan ishonch oralig'i emas."
-            ),
+            "uncertainty_note": "Oraliq test to'plamidagi 90-persentil mutlaq xatoga asoslangan; bu kafolatlangan ishonch oralig'i emas.",
             "disclaimer": "Bu statistik taxmin, yakuniy bitim narxi emas. Avtomobilni ko'zdan kechirish zarur.",
         }
     except Exception as exc:
