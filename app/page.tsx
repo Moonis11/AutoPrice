@@ -228,7 +228,7 @@ export default function Home() {
           </div>
           <div className="progress-track"><div style={{ width: `${((step + 1) / questions.length) * 100}%` }} /></div>
           <div className="question-layout">
-            <section className="question-panel">
+            <section className="question-panel" key={question.key}>
               <span className="question-kicker">SAVOL {String(step + 1).padStart(2, "0")}</span>
               <h2>{question.title}</h2>
               <p className="question-hint">{question.hint}</p>
@@ -240,7 +240,7 @@ export default function Home() {
                       <span>{option}</span><i>{currentValue === option ? "✓" : "＋"}</i>
                     </button>
                   ))}
-                  {question.key === "model" && <input className="other-model" value={typeof currentValue === "string" && !modelOptions.includes(currentValue) ? currentValue : ""} onChange={(e) => setAnswer("model", e.target.value)} placeholder="Model ro‘yxatda yo‘q — nomini yozing"/>}
+                  {question.key === "model" && <input className="other-model" value={typeof currentValue === "string" && !modelOptions.includes(currentValue) ? currentValue : ""} onChange={(e) => setAnswer("model", e.target.value)} placeholder="Yoki model nomini shu yerga yozing"/>}
                 </div>
               )}
 
