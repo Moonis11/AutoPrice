@@ -10,7 +10,7 @@ app = FastAPI()
 
 async def _handle(
     request: Request,
-    x_telegram_bot_api_secret_token: str | None = Header(default=None),
+    x_telegram_bot_api_secret_token: str | None = Header(default=None, alias="X-Telegram-Bot-Api-Secret-Token"),
 ):
     return await process_telegram_webhook(
         request,
