@@ -157,6 +157,7 @@ export default function Home() {
   const [imageFailed, setImageFailed] = useState(false);
   const [modelImage, setModelImage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const questions = useMemo(() => {
     const accidentRelated = new Set([
@@ -197,7 +198,7 @@ export default function Home() {
   }, [questions]);
 
   const question = questions[step];
-  useEffect(() => { setSearchQuery(""); }, [question?.key]);
+  useEffect(() => { setSearchQuery(""); setSearchOpen(false); }, [question?.key]);
   const currentValue = answers[question.key] ?? (question.type === "multi" ? [] : "");
   const modelOptions = CATALOG[String(answers.make || "Chevrolet")] || [];
   const imageMake = String(answers.make || "car");
@@ -311,33 +312,35 @@ export default function Home() {
                     className="answer-input search-answer"
                     type="text"
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(e) => { setSearchQuery(e.target.value); setSearchOpen(true); }}
+                    onFocus={() => setSearchOpen(true)}
+                    onBlur={() => setSearchOpen(false)}
                     placeholder={question.key === "make" ? "Markani yozing: C, Chevrolet, Чери..." : question.key === "model" ? "Modelni yozing yoki tanlang..." : "Javobni yozing yoki ro‘yxatdan tanlang..."}
                     autoComplete="off"
                   />
-                  <div className="choice-list searchable-choices">
+                  {searchOpen && <div className="choice-list searchable-choices">
                     {(question.key === "model" ? modelOptions : question.options || [])
                       .filter((option) => matchesOption(option, searchQuery))
                       .map((option) => (
-                        <button type="button" key={option} className={currentValue === option ? "choice selected" : "choice"} onClick={() => { setAnswer(question.key, option); setSearchQuery(""); }}>
+                        <button type="button" key={option} className={currentValue === option ? "choice selected" : "choice"} onMouseDown={(e) => e.preventDefault()} onClick={() => { setAnswer(question.key, option); setSearchQuery(""); setSearchOpen(false); }}>
                           <span>{option}</span><i>{currentValue === option ? "✓" : "＋"}</i>
                         </button>
                       ))}
                     {question.key === "model" && searchQuery.trim() && !modelOptions.some((option) => matchesOption(option, searchQuery)) && (
-                      <button type="button" className="choice custom-choice" onClick={() => { setAnswer("model", searchQuery.trim()); setSearchQuery(""); }}>
+                      <button type="button" className="choice custom-choice" onMouseDown={(e) => e.preventDefault()} onClick={() => { setAnswer("model", searchQuery.trim()); setSearchQuery(""); setSearchOpen(false); }}>
                         <span>“{searchQuery.trim()}” nomli modelni kiritish</span><i>＋</i>
                       </button>
                     )}
                     {question.key === "make" && searchQuery.trim() && !(question.options || []).some((option) => matchesOption(option, searchQuery)) && (
-                      <button type="button" className="choice custom-choice" onClick={() => { setAnswer("make", searchQuery.trim()); setSearchQuery(""); }}>
+                      <button type="button" className="choice custom-choice" onMouseDown={(e) => e.preventDefault()} onClick={() => { setAnswer("make", searchQuery.trim()); setSearchQuery(""); setSearchOpen(false); }}>
                         <span>“{searchQuery.trim()}” markasini kiritish</span><i>＋</i>
                       </button>
                     )}
                     {searchQuery.trim() && !(question.key === "model" ? modelOptions : question.options || []).some((option) => matchesOption(option, searchQuery)) && question.key !== "model" && question.key !== "make" && (
                       <p className="no-search-results">Mos javob topilmadi. Boshqa yozuvni sinab ko‘ring.</p>
                     )}
-                  </div>
-                  <p className="search-hint">Yozishni boshlang — mos variantlar chiqadi. Lotin va kirill yozuvi qo‘llab-quvvatlanadi.</p>
+                  </div>}
+                  <p className="search-hint">{searchOpen ? "Mos variantni tanlang. Lotin va kirill yozuvi qo‘llab-quvvatlanadi." : "Variantlarni ko‘rish uchun shu maydonni bosing yoki yozishni boshlang."}</p>
                 </div>
               )}
 
