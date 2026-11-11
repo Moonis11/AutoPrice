@@ -289,14 +289,51 @@ export default function Home() {
   return (
     <main className="wizard-shell">
       <header className="wizard-nav">
-        <a className="brand" href="/"><span className="brand-mark">A</span> AutoPrice</a>
-        <span className="nav-note">O‘zbekiston avtomobil bozori</span>
+        <a className="brand" href="/"><span className="brand-mark">A</span> AUTOPRICE</a>
+        <nav className="main-nav">
+          <a href="#valuation">Baholash</a>
+          <a href="#how-it-works">Qanday ishlaydi</a>
+          <a href="#services">Xizmatlar</a>
+        </nav>
+        <a className="nav-cta" href="#valuation">Avtomobilni baholash <span>↗</span></a>
       </header>
 
+      {!result && (
+        <>
+          <section className="hero-section">
+            <div className="hero-copy">
+              <span className="hero-eyebrow">MUSTAQIL · AQILLI · SHAFFOF</span>
+              <h1>AVTOMOBILINGIZ<br/><em>HAQIQIY QIYMATINI</em><br/>BILING.</h1>
+              <p>Bozor narxi, texnik holat va muhim omillar — barchasi bitta aqlli baholash platformasida.</p>
+              <div className="hero-actions">
+                <a className="hero-primary" href="#valuation">Bepul baholash <span>→</span></a>
+                <a className="hero-secondary" href="#how-it-works"><span className="play-icon">▶</span> Qanday ishlaydi</a>
+              </div>
+            </div>
+            <div className="hero-visual">
+              <img src={modelImage} alt="AutoPrice avtomobil baholash uchun avtomobil" onError={() => setImageFailed(true)}/>
+              <div className="hero-image-shade"/>
+              <div className="hero-image-caption"><span>SMART VEHICLE VALUATION</span><b>ANIQROQ QAROR. ISHONCHLIROQ BAHO.</b></div>
+            </div>
+            <div className="hero-bottomline"><span>01 / MUSTAQIL BAHOLASH</span><span>UZBEKISTAN AUTO MARKET</span></div>
+          </section>
+          <section className="feature-strip" id="how-it-works">
+            <div><b>01</b><span>Bozor narxi</span><small>Ma’lumotlarga asoslangan taxmin</small></div>
+            <div><b>02</b><span>Texnik holat</span><small>Asosiy tizimlar bo‘yicha baho</small></div>
+            <div><b>03</b><span>Aqlli tavsiyalar</span><small>Kerakli usta va ehtiyot qismlar</small></div>
+            <div><b>04</b><span>Shaffof natija</span><small>Narxga ta’sir qilgan omillar</small></div>
+          </section>
+          <section className="intro-band" id="services">
+            <div><span className="section-kicker">AUTOPRICE PLATFORMASI</span><h2>FAQAT NARX EMAS.<br/><em>TO‘LIQ TASAVVUR.</em></h2></div>
+            <p>Avtomobilni sotish yoki sotib olishdan oldin uning taxminiy bozor qiymatini, holatini va e’tibor talab qiladigan qismlarini bir joyda ko‘ring.</p>
+          </section>
+        </>
+      )}
+
       {!result ? (
-        <section className="wizard">
+        <section className="wizard" id="valuation">
           <div className="wizard-top">
-            <div><span className="eyebrow">AQLLI AVTOMOBIL BAHOLASH</span><h1>Avtomobil haqida<br/><em>birgalikda bilib olamiz.</em></h1></div>
+            <div><span className="eyebrow">BIR NECHA QADAMDA</span><h1>Avtomobilingizni<br/><em>baholashni boshlang.</em></h1></div>
             <div className="progress-count">{step + 1}<span> / {questions.length}</span></div>
           </div>
           <div className="progress-track"><div style={{ width: `${((step + 1) / questions.length) * 100}%` }} /></div>
@@ -379,7 +416,7 @@ export default function Home() {
               <div className="preview-image-wrap">
                 {!imageFailed ? <img src={modelImage} alt={`${answers.make || "Avtomobil"} ${answers.model || ""} avtomobil rasmi`} onError={() => setImageFailed(true)}/> : <div className="preview-fallback">AUTO<br/>PRICE</div>}
               </div>
-              <div className="preview-caption"><span>Tanlangan avtomobil</span><strong>{String(answers.make || "Marka")} {String(answers.model || "Model")}</strong><small>{String(answers.year || "Yil")} · {String(answers.mileage_km || "—")} km</small></div>
+              <div className="preview-caption"><span>BAHOLANAYOTGAN AVTOMOBIL</span><strong>{String(answers.make || "Marka")} {String(answers.model || "Model")}</strong><small>{String(answers.year || "Yil")} · {String(answers.mileage_km || "—")} km</small></div>
               <p className="preview-note">Rasm namunaviy bo‘lishi mumkin. Aniq komplektatsiya va kuzov ko‘rinishi bilan farq qilishi mumkin.</p>
             </aside>
           </div>
