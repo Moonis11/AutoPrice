@@ -111,6 +111,40 @@ function getRecommendations(key: string, value: Answer): Recommendation[] {
   return [item];
 }
 
+const CYRILLIC_TO_LATIN: Record<string, string> = {
+  а: "a", б: "b", в: "v", г: "g", ғ: "g‘", д: "d", е: "e", ё: "yo",
+  ж: "j", з: "z", и: "i", й: "y", к: "k", қ: "q", л: "l", м: "m",
+  н: "n", о: "o", п: "p", р: "r", с: "s", т: "t", у: "u", ў: "o‘",
+  ф: "f", х: "x", ҳ: "h", ц: "ts", ч: "ch", ш: "sh", щ: "sh",
+  э: "e", ю: "yu", я: "ya", ъ: "", ь: "",
+};
+
+function normalizeSearch(value: string): string {
+  return value.toLowerCase().trim().replace(/[ъь]/g, "").replace(/[’‘`´]/g, "'")
+    .split("").map((char) => CYRILLIC_TO_LATIN[char] ?? char).join("")
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+const SEARCH_ALIASES: Record<string, string[]> = {
+  Chevrolet: ["Шевролет", "Шевроле", "Shevrolet"],
+  Chery: ["Чери", "Cheri"],
+  BYD: ["Би вай ди", "Бйд"],
+  Kia: ["Киа"],
+  Hyundai: ["Хундай", "Хёндай"],
+  Toyota: ["Тойота"],
+  Mercedes: ["Мерседес"],
+  BMW: ["БМВ"],
+  Volkswagen: ["Фольксваген"],
+  Lada: ["Лада"],
+};
+
+function matchesOption(option: string, query: string): boolean {
+  const normalizedQuery = normalizeSearch(query);
+  if (!normalizedQuery) return true;
+  const candidates = [option, ...(SEARCH_ALIASES[option] || [])].map(normalizeSearch);
+  return candidates.some((candidate) => candidate.startsWith(normalizedQuery) || candidate.includes(normalizedQuery));
+}
+
 const money = (value: number) =>
   new Intl.NumberFormat("uz-UZ", { maximumFractionDigits: 0 }).format(value) + " so‘m";
 
@@ -122,6 +156,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
   const [modelImage, setModelImage] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const questions = useMemo(() => {
     const accidentRelated = new Set([
@@ -162,6 +197,7 @@ export default function Home() {
   }, [questions]);
 
   const question = questions[step];
+  useEffect(() => { setSearchQuery(""); }, [question?.key]);
   const currentValue = answers[question.key] ?? (question.type === "multi" ? [] : "");
   const modelOptions = CATALOG[String(answers.make || "Chevrolet")] || [];
   const imageMake = String(answers.make || "car");
@@ -270,13 +306,38 @@ export default function Home() {
               <p className="question-hint">{question.hint}</p>
 
               {question.type === "select" && (
-                <div className="choice-list">
-                  {(question.key === "model" ? modelOptions : question.options || []).map((option) => (
-                    <button type="button" key={option} className={currentValue === option ? "choice selected" : "choice"} onClick={() => setAnswer(question.key, option)}>
-                      <span>{option}</span><i>{currentValue === option ? "✓" : "＋"}</i>
-                    </button>
-                  ))}
-                  {question.key === "model" && <input className="other-model" value={typeof currentValue === "string" && !modelOptions.includes(currentValue) ? currentValue : ""} onChange={(e) => setAnswer("model", e.target.value)} placeholder="Yoki model nomini shu yerga yozing"/>}
+                <div className="select-search">
+                  <input
+                    className="answer-input search-answer"
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder={question.key === "make" ? "Markani yozing: C, Chevrolet, Чери..." : question.key === "model" ? "Modelni yozing yoki tanlang..." : "Javobni yozing yoki ro‘yxatdan tanlang..."}
+                    autoComplete="off"
+                  />
+                  <div className="choice-list searchable-choices">
+                    {(question.key === "model" ? modelOptions : question.options || [])
+                      .filter((option) => matchesOption(option, searchQuery))
+                      .map((option) => (
+                        <button type="button" key={option} className={currentValue === option ? "choice selected" : "choice"} onClick={() => { setAnswer(question.key, option); setSearchQuery(""); }}>
+                          <span>{option}</span><i>{currentValue === option ? "✓" : "＋"}</i>
+                        </button>
+                      ))}
+                    {question.key === "model" && searchQuery.trim() && !modelOptions.some((option) => matchesOption(option, searchQuery)) && (
+                      <button type="button" className="choice custom-choice" onClick={() => { setAnswer("model", searchQuery.trim()); setSearchQuery(""); }}>
+                        <span>“{searchQuery.trim()}” nomli modelni kiritish</span><i>＋</i>
+                      </button>
+                    )}
+                    {question.key === "make" && searchQuery.trim() && !(question.options || []).some((option) => matchesOption(option, searchQuery)) && (
+                      <button type="button" className="choice custom-choice" onClick={() => { setAnswer("make", searchQuery.trim()); setSearchQuery(""); }}>
+                        <span>“{searchQuery.trim()}” markasini kiritish</span><i>＋</i>
+                      </button>
+                    )}
+                    {searchQuery.trim() && !(question.key === "model" ? modelOptions : question.options || []).some((option) => matchesOption(option, searchQuery)) && question.key !== "model" && question.key !== "make" && (
+                      <p className="no-search-results">Mos javob topilmadi. Boshqa yozuvni sinab ko‘ring.</p>
+                    )}
+                  </div>
+                  <p className="search-hint">Yozishni boshlang — mos variantlar chiqadi. Lotin va kirill yozuvi qo‘llab-quvvatlanadi.</p>
                 </div>
               )}
 
